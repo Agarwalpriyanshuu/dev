@@ -44,34 +44,20 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'git-token', variable: 'GIT_PASSWORD')]) {
                         sh '''
-                        set -e
-                        echo "🔁 Configuring Git"
-                        git config user.name "Jenkins"
-                        git config user.email "jenkins@example.com"
-        
-                        echo "📥 Fetching branches"
-                        git fetch origin
-        
-                        echo "🔀 Checking out master"
-                        git checkout master || git checkout -b master origin/master
-        
-                        echo "📌 Pulling latest master"
-                        git pull origin master
-        
-                        echo "🔁 Merging dev into master"
-                        git merge origin/dev -m "Auto-merged dev into master after successful tests" || {
-                            echo "❌ Merge conflict or error"
-                            exit 1
-                        }
-        
-                        echo "🚀 Pushing to GitHub"
-                        git push https://Agarwalpriyanshuu:${GIT_PASSWORD}@github.com/Agarwalpriyanshuu/dev.git master
+                            git config user.name "Jenkins"
+                            git config user.email "jenkins@example.com"
+
+                            git fetch origin
+                            git checkout ${TARGET_BRANCH} || git checkout -b ${TARGET_BRANCH} origin/${TARGET_BRANCH}
+                            git pull origin ${TARGET_BRANCH}
+                            git merge ${SOURCE_BRANCH} -m "✅ Auto-merged ${SOURCE_BRANCH} into ${TARGET_BRANCH} after tests and SonarQube analysis"
+                            git push https://Agarwalpriyanshuu:${GIT_PASSWORD}@github.com/Agarwalpriyanshuu/dev.git ${TARGET_BRANCH}
                         '''
                     }
                 }
             }
         }
-
+    }
 
     post {
         success {
