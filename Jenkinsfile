@@ -4,12 +4,27 @@ pipeline {
     environment {
         SONARQUBE_ENV = 'MySonarQubeServer'
         PATH = "/opt/sonar-scanner/bin:$PATH"
+        GIT_REPO_URL = 'https://github.com/Agarwalpriyanshuu/dev.git'
+        GIT_CREDENTIALS_ID = 'git-token'
+        SOURCE_BRANCH = 'dev'
+        TARGET_BRANCH = 'master'
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout Source Branch') {
             steps {
-                git branch: 'dev', url: 'https://github.com/Agarwalpriyanshuu/dev.git', credentialsId: 'git-token'
+                git branch: "${SOURCE_BRANCH}", url: "${GIT_REPO_URL}", credentialsId: "${GIT_CREDENTIALS_ID}"
+            }
+        }
+
+        stage('Run Pytest') {
+            steps {
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install -r requirements.txt
+                    pytest --maxfail=1 --disable-warnings --junitxml=report.xml
+                '''
             }
         }
 
@@ -26,21 +41,32 @@ pipeline {
         stage('Merge to Master') {
             steps {
                 script {
-		    withCredentials([string(credentialsId: 'git-token', variable: 'GIT_PASSWORD')]) {
+                    withCredentials([string(credentialsId: 'git-token', variable: 'GIT_PASSWORD')]) {
                         sh '''
-                        git config user.name "Jenkins"
-                        git config user.email "jenkins@example.com"
-        
-                        git fetch origin
-                        git checkout master || git checkout -b master origin/master
-                        git pull origin master
-                        git merge dev -m "Auto-merged dev into master after SonarQube analysis"
-        
-                        git push https://Agarwalpriyanshuu:${GIT_PASSWORD}@github.com/Agarwalpriyanshuu/dev.git master
+                            git config user.name "Jenkins"
+                            git config user.email "jenkins@example.com"
+
+                            git fetch origin
+                            git checkout ${TARGET_BRANCH} || git checkout -b ${TARGET_BRANCH} origin/${TARGET_BRANCH}
+                            git pull origin ${TARGET_BRANCH}
+                            git merge ${SOURCE_BRANCH} -m "✅ Auto-merged ${SOURCE_BRANCH} into ${TARGET_BRANCH} after tests and SonarQube analysis"
+                            git push https://Agarwalpriyanshuu:${GIT_PASSWORD}@github.com/Agarwalpriyanshuu/dev.git ${TARGET_BRANCH}
                         '''
                     }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ All stages passed. Merged ${SOURCE_BRANCH} into ${TARGET_BRANCH}."
+        }
+        failure {
+            echo "❌ Build failed. Merge aborted."
+        }
+        always {
+            junit 'report.xml' // Publishes pytest results if using test reports
         }
     }
 }
